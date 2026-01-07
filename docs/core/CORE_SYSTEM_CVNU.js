@@ -831,15 +831,15 @@ const system = {
     colorize(text, colorKey) {
         const style = KERNEL.STYLES.PALETTE[colorKey] || KERNEL.STYLES.PALETTE.RESET;
         // CAS TERMINAL (Node.js)
-        if (KERNEL.STYLES.MODE === 'ANSI') {
-            return (style.ansi || '') + text + KERNEL.STYLES.PALETTE.RESET.ansi;
-        }
-        
-        // CAS NAVIGATEUR (HTML)
-        // On sécurise le start et l'end pour éviter les "undefined"
-        const start = style.html_start || '';
-        const end = style.html_end || '</span>'; 
-        return `${start}${text}${end}`;
+    if (KERNEL.STYLES.MODE === 'ANSI') {
+        return (style.ansi || '') + text + KERNEL.STYLES.PALETTE.RESET.ansi;
+    }
+    
+    // CAS NAVIGATEUR (HTML)
+    // On sécurise le start et l'end pour éviter les "undefined"
+    const start = style.html_start || '';
+    const end = style.html_end || '</span>'; 
+    return `${start}${text}${end}`;
         if (KERNEL.STYLES.MODE === 'HTML') {
             return `${style.html_start}${text}${style.html_end}`;
         } else {

@@ -620,7 +620,7 @@ html, body {
 }
 
 /* Palette de Shading 8-bit */
-.c-bloc { color: #00ffff; }                   /* Eau Surface */
+.c-bloc { color: #016262; }                   /* Eau Surface */
 .w-bloc { color: #ffffff; }                   /* Montagne / Neige */
 .y-bloc { color: #FFD700; text-shadow: 0 0 5px rgba(255, 215, 0, 0.5); } /* Quartz/Quarks */
 .b-bloc { color: #0077FF; } /* Eau */
