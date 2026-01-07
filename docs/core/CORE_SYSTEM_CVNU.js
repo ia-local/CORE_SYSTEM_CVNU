@@ -610,6 +610,7 @@ const KERNEL = {
         "stream:${0}",
         "stop:${0}" ]
         },
+
     SKILLS_MATRIX: {
         AGRI:  { label: 'Agriculture',    icon: '🌾', capacity: 'Optimisation Biomasse' },
         IND:   { label: 'Industrie',      icon: '🏭', capacity: 'Automation Flux' },
@@ -637,7 +638,14 @@ const KERNEL = {
         USER: null,
         SESSION_LOGS: [],
         RUP_CURRENT: 0,
-
+        COGNITIVE_BIAS: {
+            memory_stack: [],      // Historique des décisions clés
+            active_awareness: 0.5, // Niveau de "conscience" (0 à 1)
+            system_knowledge: {
+                last_alias_sync: null,
+                detected_patterns: []
+            }
+        },
         urban_jobs: [], // Emplois urbains assignés
         USER_CVNU: {
             title : "CLASSE MÉTIER GÉNÉRIQUE",
@@ -859,7 +867,7 @@ const system = {
      * Moteur de rendu ASCII Window (Output Manager).
      * CORRECTION : Gestion du wrapping pour les longues chaînes (JWT).
      */
-wrapASCII(title, content) {
+    wrapASCII(title, content) {
     const b = KERNEL.ASCII_DICT.TENSOR.BORDERS.DOUBLE;
     const MAX_WIDTH = 100; 
     let lines = [];
@@ -908,7 +916,7 @@ wrapASCII(title, content) {
 
     output.push(this.colorize(`${b[2]}${borderLine}${b[3]}`, 'CYAN'));
     return output.join('\n');
-},
+    },
     /**
      * Moteur de Rendu UI (Text User Interface)
      * Appelle le template approprié en lui injectant l'état actuel (State).
@@ -955,119 +963,115 @@ wrapASCII(title, content) {
         console.log(this.wrapASCII("CORE SYSTEM BOOT", msg));
         this.statusReport();
     },
-/**
- * Calcul du jour actuel (1-28) avec gestion des cycles glissants
- * Basé sur l'Epoch Unix (1970) et l'ancrage du 01/12/2025
- */
-/**
 
-/**
- * Synchronisation forcée du Cycle sur J10 = 07/01/2026
- */
-syncDefiDate() {
-    // Point d'ancrage calculé : 29 Décembre 2025 00:00:00
-    const anchorDate = new Date("2025-12-29T00:00:00Z").getTime();
-    
-    // Mise à jour de l'état global
-    KERNEL.STATE.SESSION.cycle_start = anchorDate;
-    KERNEL.STATE.SESSION.last_sync = Date.now();
-    
-    return "✅ [KERNEL] Horloge synchronisée : Cycle débuté le 29/12/2025 (J10 Actuel)";
-},
-/**
- * Calcul du jour actuel (1-28) - Norme W3C Semantic
- * Aligné sur le Cycle 2 débuté le 29/12/2025
- */
-getCurrentDayFromTimestamp() {
-    const now = Date.now();
-    // Point de référence immuable : Lundi 1er Décembre 2025
-    const genesis_ms = 1733011200000; 
-    const day_ms = 86400000; 
-    const cycle_ms = day_ms * 28; 
 
-    // Calcul du temps total depuis le début
-    const total_elapsed = now - genesis_ms;
-
-    // Utilisation du MODULO pour boucler sur 28 jours
-    const current_cycle_elapsed = total_elapsed % cycle_ms;
-
-    // Retourne le jour exact (Aujourd'hui 07/01/2026 = 10)
-    return Math.floor(current_cycle_elapsed / day_ms) + 1;
-},
-
-/**
-/**
- * Calcul du jour actuel basé sur le delta de Timestamps
- * Conforme norme sémantique W3C
- */
-getCurrentDayFromTimestamp() {
-    const now = Date.now(); // Timestamp actuel
-    const start = KERNEL.STATE.SESSION.cycle_genesis_ms;
-    
-    // Calcul de la différence absolue
-    const delta = now - start;
-    
-    // Conversion en jours entiers (Math.ceil pour J1 dès la première seconde)
-    return Math.ceil(delta / KERNEL.STATE.SESSION.day_ms);
-},
-
-renderCalendarView() {
-    const visualDay = this.getCurrentDayFromTimestamp(); // Sera 10
-    const daysLeft = 28 - visualDay;
-    
-    // Détection de Phase dynamique
-    const phases = ["INITIATION", "ACCUMULATION", "CONSOLIDATION", "FINALISATION"];
-    const phaseIndex = Math.floor((visualDay - 1) / 7);
-    const currentPhase = phases[phaseIndex] || "MAINTENANCE";
-
-    let output = [];
-    output.push(this.colorize("📅 CALENDRIER STRATÉGIQUE (DÉFI 647)", 'CYAN'));
-    output.push("═".repeat(50));
-    output.push(`PHASE ACTUELLE : ${this.colorize(currentPhase, 'YELLOW')} (J${visualDay})`);
-    output.push("═".repeat(50));
-
-    // Grille 4x7
-    for (let s = 0; s < 4; s++) {
-        let row = `S${s + 1} : `;
-        for (let d = 1; d <= 7; d++) {
-            const dayNum = (s * 7) + d;
-            let symbol = "░░";
-            
-            if (dayNum < visualDay) symbol = this.colorize("✅", 'GREEN');
-            else if (dayNum === visualDay) symbol = this.colorize("📍", 'RED');
-            
-            row += `[${symbol}] `;
-        }
-        output.push(row);
-    }
-    
-    output.push("═".repeat(50));
-    
-    // KPIs et Conseil
-    const solde = KERNEL.STATE.USER_CVNU.value_points || 0;
-    const progress = Math.floor((solde / 7500) * 100);
-    const bar = "█".repeat(Math.floor(progress/5)).padEnd(20, "░");
-
-    output.push(`📍 STATUS J${visualDay} / 28 | REF: ${new Date().toISOString().split('T')[0]}`);
-    output.push(`💰 CAPITAL : ${solde} / 7500 UTMi`);
-    output.push(`📊 PROGRESS: [${bar}] ${progress}%`);
-    output.push(`⏳ DEADLINE: Reste ${daysLeft} jours.`);
-    output.push(`💡 CONSEIL : ${this.getDailyAdvice(visualDay)}`);
-
-    return output.join('\n');
-},
-getDailyAdvice(day) {
-    if (day <= 7) return "Configurez votre RIB et lancez /start.";
-    if (day <= 14) return "Produisez du contenu via /dev pour augmenter le capital.";
-    if (day <= 21) return "Optimisez la fiscalité avec /perimeter.";
-    if (day >= 22) return "Testez la persistance JSON avec /save.";
-    return "Analyse en cours...";
-},
-        /**
-     * Traite une interaction et calcule sa valeur RUP en asynchrone
-     * @param {Object} interaction - Type et données de l'action
+    /**
+     * Synchronisation forcée du Cycle sur J10 = 07/01/2026
      */
-    async processInteractionAsync(interaction) {
+    syncDefiDate() {
+        // Point d'ancrage calculé : 29 Décembre 2025 00:00:00
+        const anchorDate = new Date("2025-12-29T00:00:00Z").getTime();
+
+        // Mise à jour de l'état global
+        KERNEL.STATE.SESSION.cycle_start = anchorDate;
+        KERNEL.STATE.SESSION.last_sync = Date.now();
+
+        return "✅ [KERNEL] Horloge synchronisée : Cycle débuté le 29/12/2025 (J10 Actuel)";
+    },
+    /**
+     * Calcul du jour actuel (1-28) - Norme W3C Semantic
+     * Aligné sur le Cycle 2 débuté le 29/12/2025
+     */
+    getCurrentDayFromTimestamp() {
+        const now = Date.now();
+        // Point de référence immuable : Lundi 1er Décembre 2025
+        const genesis_ms = 1733011200000; 
+        const day_ms = 86400000; 
+        const cycle_ms = day_ms * 28; 
+
+        // Calcul du temps total depuis le début
+        const total_elapsed = now - genesis_ms;
+
+        // Utilisation du MODULO pour boucler sur 28 jours
+        const current_cycle_elapsed = total_elapsed % cycle_ms;
+
+        // Retourne le jour exact (Aujourd'hui 07/01/2026 = 10)
+        return Math.floor(current_cycle_elapsed / day_ms) + 1;
+    },
+
+    /**
+    /**
+     * Calcul du jour actuel basé sur le delta de Timestamps
+     * Conforme norme sémantique W3C
+     */
+    getCurrentDayFromTimestamp() {
+        const now = Date.now(); // Timestamp actuel
+        const start = KERNEL.STATE.SESSION.cycle_genesis_ms;
+
+        // Calcul de la différence absolue
+        const delta = now - start;
+
+        // Conversion en jours entiers (Math.ceil pour J1 dès la première seconde)
+        return Math.ceil(delta / KERNEL.STATE.SESSION.day_ms);
+    },
+
+    renderCalendarView() {
+        const visualDay = this.getCurrentDayFromTimestamp(); // Sera 10
+        const daysLeft = 28 - visualDay;
+
+        // Détection de Phase dynamique
+        const phases = ["INITIATION", "ACCUMULATION", "CONSOLIDATION", "FINALISATION"];
+        const phaseIndex = Math.floor((visualDay - 1) / 7);
+        const currentPhase = phases[phaseIndex] || "MAINTENANCE";
+
+        let output = [];
+        output.push(this.colorize("📅 CALENDRIER STRATÉGIQUE (DÉFI 647)", 'CYAN'));
+        output.push("═".repeat(50));
+        output.push(`PHASE ACTUELLE : ${this.colorize(currentPhase, 'YELLOW')} (J${visualDay})`);
+        output.push("═".repeat(50));
+
+        // Grille 4x7
+        for (let s = 0; s < 4; s++) {
+            let row = `S${s + 1} : `;
+            for (let d = 1; d <= 7; d++) {
+                const dayNum = (s * 7) + d;
+                let symbol = "░░";
+
+                if (dayNum < visualDay) symbol = this.colorize("✅", 'GREEN');
+                else if (dayNum === visualDay) symbol = this.colorize("📍", 'RED');
+
+                row += `[${symbol}] `;
+            }
+            output.push(row);
+        }
+
+        output.push("═".repeat(50));
+
+        // KPIs et Conseil
+        const solde = KERNEL.STATE.USER_CVNU.value_points || 0;
+        const progress = Math.floor((solde / 7500) * 100);
+        const bar = "█".repeat(Math.floor(progress/5)).padEnd(20, "░");
+
+        output.push(`📍 STATUS J${visualDay} / 28 | REF: ${new Date().toISOString().split('T')[0]}`);
+        output.push(`💰 CAPITAL : ${solde} / 7500 UTMi`);
+        output.push(`📊 PROGRESS: [${bar}] ${progress}%`);
+        output.push(`⏳ DEADLINE: Reste ${daysLeft} jours.`);
+        output.push(`💡 CONSEIL : ${this.getDailyAdvice(visualDay)}`);
+
+        return output.join('\n');
+    },
+    getDailyAdvice(day) {
+        if (day <= 7) return "Configurez votre RIB et lancez /start.";
+        if (day <= 14) return "Produisez du contenu via /dev pour augmenter le capital.";
+        if (day <= 21) return "Optimisez la fiscalité avec /perimeter.";
+        if (day >= 22) return "Testez la persistance JSON avec /save.";
+        return "Analyse en cours...";
+    },
+            /**
+         * Traite une interaction et calcule sa valeur RUP en asynchrone
+         * @param {Object} interaction - Type et données de l'action
+         */
+        async processInteractionAsync(interaction) {
         return new Promise((resolve) => {
             setTimeout(() => {
                 // 1. Calcul de la valeur brute UTMi
@@ -1090,30 +1094,61 @@ getDailyAdvice(day) {
                 });
             }, 100); // Simulation latence réseau/blockchain
         });
-    },
-    // --- Dans CORE_SYSTEM_CVNU.js, objet 'system' ---
+        },
+        // --- Dans CORE_SYSTEM_CVNU.js, objet 'system' ---
 
-/**
- * Exécute une requête directement vers le modèle Llama via le bridge local
- * @param {string} prompt - L'instruction utilisateur
- * @param {string} role - Le système de persona (Architecte, Codeur, etc.)
- */
-async callLlama(prompt, role = "Architecte AGI CVNU") {
-    try {
-        const response = await fetch('http://localhost:3145/api/ai', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ 
-                prompt: prompt,
-                systemRole: role,
-                model: "llama-3.1-8b-instant" 
-            })
-        });
-        const data = await response.json();
-        return data.result;
-    } catch (e) {
-        return "⚠️ Erreur de liaison AGI : Assurez-vous que server.js tourne sur le port 3145.";
+    /**
+     * Exécute une requête directement vers le modèle Llama via le bridge local
+     * @param {string} prompt - L'instruction utilisateur
+     * @param {string} role - Le système de persona (Architecte, Codeur, etc.)
+     */
+    async callLlama(prompt, role = "Architecte AGI CVNU") {
+        try {
+            const response = await fetch('http://localhost:3145/api/ai', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ 
+                    prompt: prompt,
+                    systemRole: role,
+                    model: "llama-3.1-8b-instant" 
+                })
+            });
+            const data = await response.json();
+            return data.result;
+        } catch (e) {
+            return "⚠️ Erreur de liaison AGI : Assurez-vous que server.js tourne sur le port 3145.";
+        }
+    },
+    // Dans CORE_SYSTEM_CVNU.js -> objet system
+ingestCognitiveBias(cmd, output) {
+    const timestamp = new Date().toISOString();
+    
+    // Analyse simplifiée : On cherche des mots-clés de structure
+    const isStructural = cmd.includes('CORE_SYSTEM') || cmd.includes('alias');
+    
+    const biasEntry = {
+        ts: timestamp,
+        trigger: cmd,
+        impact: isStructural ? 'HIGH_STRUCTURAL' : 'LOW_PROCEDURAL',
+        summary: `L'algorithme a observé l'exécution de : ${cmd}`
+    };
+
+    // On empile dans la mémoire cognitive
+    KERNEL.STATE.COGNITIVE_BIAS.memory_stack.push(biasEntry);
+    
+    // On limite à 50 entrées pour ne pas saturer le JSON de sauvegarde
+    if (KERNEL.STATE.COGNITIVE_BIAS.memory_stack.length > 50) {
+        KERNEL.STATE.COGNITIVE_BIAS.memory_stack.shift();
     }
+
+    // Mise à jour du score de conscience
+    KERNEL.STATE.COGNITIVE_BIAS.active_awareness = Math.min(1.0, KERNEL.STATE.COGNITIVE_BIAS.active_awareness + 0.01);
+
+    return this.wrapASCII("COGNITIVE BIAS UPDATED", 
+        `🧠 Conscience : ${(KERNEL.STATE.COGNITIVE_BIAS.active_awareness * 100).toFixed(1)}%\n` +
+        `📝 Entrée : ${biasEntry.impact}\n` +
+        `🔍 Pattern détecté : ${isStructural ? 'SYNCHRONISATION_NOYAU' : 'COMMANDE_STANDARDISEE'}`
+    );
 },
     /**
      * MODULE FISCAL : Calcul de la Taxe Circulaire Négative (TCN)
@@ -3514,32 +3549,32 @@ async signTokenAsync(header, payload, secret) {
                 this.createMessageInstance('SYSTEM', 'Activation CVNU demandée');
                 return this.wrapASCII("CVNU MANAGEMENT", "EXECUTING_MANAGEMENT_PROTOCOL...\nDATA: CVNU_V2 ACTIVATED");
           
-case '/sys':
-            const subCmd = args.join(' ');
-            const sysResult = this.onCommandReceive(subCmd);
-            // On ne ré-encadre pas si le résultat est déjà un bloc ASCII
-            return (sysResult.includes('╔')) ? sysResult : this.wrapASCII("SYSTÈME LOCAL", sysResult);
+            case '/sys':
+                const subCmd = args.join(' ');
+                const sysResult = this.onCommandReceive(subCmd);
+                // On ne ré-encadre pas si le résultat est déjà un bloc ASCII
+                return (sysResult.includes('╔')) ? sysResult : this.wrapASCII("SYSTÈME LOCAL", sysResult);
 
-        // 2. ROUTAGE AGI (LLAMA-3.1-8B-INSTANT)
-        case '/agi':
-            const agiPrompt = args.join(' ');
-            this.createMessageInstance('USER', agiPrompt);
-            
-            // On prépare le contenu sémantique
-            const agiContent = `[SYSTEM_CONTEXT]: ${JSON.stringify(KERNEL.STATE.USER_CVNU)}\n[USER_PROMPT]: ${agiPrompt}`;
-            
-            // On encadre DIRECTEMENT avec wrapASCII
-            const wrappedAgi = this.wrapASCII("AGI ROUTING ENGINE", agiContent);
-            
-            // On ajoute le flag de transport pour le Front-end
-            return `__BRIDGE_AGI__${wrappedAgi}`;
+            // 2. ROUTAGE AGI (LLAMA-3.1-8B-INSTANT)
+            case '/agi':
+                const agiPrompt = args.join(' ');
+                this.createMessageInstance('USER', agiPrompt);
+
+                // On prépare le contenu sémantique
+                const agiContent = `[SYSTEM_CONTEXT]: ${JSON.stringify(KERNEL.STATE.USER_CVNU)}\n[USER_PROMPT]: ${agiPrompt}`;
+
+                // On encadre DIRECTEMENT avec wrapASCII
+                const wrappedAgi = this.wrapASCII("AGI ROUTING ENGINE", agiContent);
+
+                // On ajoute le flag de transport pour le Front-end
+                return `__BRIDGE_AGI__${wrappedAgi}`;
 
         // 3. ROUTAGE AI (BRUT)
-        case '/ai':
-            const aiPrompt = args.join(' ');
-            this.createMessageInstance('USER', aiPrompt);
-            const wrappedAi = this.wrapASCII("AI STREAM", aiPrompt);
-            return `__BRIDGE_AI__${wrappedAi}`;
+            case '/ai':
+                const aiPrompt = args.join(' ');
+                this.createMessageInstance('USER', aiPrompt);
+                const wrappedAi = this.wrapASCII("AI STREAM", aiPrompt);
+                return `__BRIDGE_AI__${wrappedAi}`;
             case '/agi-t':
                 if (args[0] === 'train') {
                     const targetNode = command === '/cvnu' ? 'CORE' : 'AGI';
@@ -4011,6 +4046,12 @@ case '/sys':
                 default:
                 return this.wrapASCII("ERREUR", "Commande non reconnue");
         }
+        // APRÈS l'exécution, on génère le biais cognitif
+        const biasOutput = this.ingestCognitiveBias(cmd, response);
+        
+        // On peut choisir d'ajouter le biais à la réponse ou de le garder en log interne
+        console.log("AGI_AWARENESS_LOG:", biasOutput);
+        return response;
     },
     /**
      * Génère le paquet de données pour le /gem sync
