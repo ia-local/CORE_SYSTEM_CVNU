@@ -1,0 +1,249 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Studio AV - AGI Profile & Logic CORE_SYSTEM_CVNU Mapper</title>
+    <link rel="stylesheet" href="style.css"> 
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: { 'akai-base': '#1e1e1e' },
+                    fontFamily: { sans: ['Inter', 'sans-serif'], mono: ['Consolas', 'monospace'] },
+                }
+            }
+        }
+    </script>
+    
+    <style>
+        /* Styles spécifiques au Terminal/Profil IA */
+        .terminal-container {
+            background-color: #0A0A0A;
+            border: 1px solid #333;
+            border-radius: 6px;
+        }
+        #terminal-output-profile {
+            flex-grow: 1;
+            overflow-y: auto;
+            padding: 1rem;
+            white-space: pre-wrap;
+            font-family: 'Consolas', 'Monospace';
+            font-size: 11px;
+            color: #C0C0C0;
+            background-color: #111;
+        }
+        #terminal-input-profile {
+            background-color: #000;
+            border: none;
+            color: #4ade80; /* Vert pour l'entrée utilisateur */
+            padding: 0.5rem 1rem;
+            outline: none;
+            width: 100%;
+            font-size: 12px;
+        }
+        .ai-log { color: #4ade80; } /* Vert IA */
+        .user-log { color: #60a5fa; } /* Bleu Utilisateur */
+        
+        .profile-card { background-color: #1a1a1a; }
+        
+        /* Styles pour les sections scrollables */
+        #conversation-history, #chat-rooms {
+            height: calc(50% - 20px); /* Ajustement pour la hauteur de l'aside content */
+            overflow-y: auto;
+        }
+        .chat-room-item {
+            cursor: pointer;
+            padding: 8px;
+            border-bottom: 1px solid #2A2A2A;
+        }
+        .chat-room-item:hover {
+            background-color: #252525;
+        }
+    </style>
+</head>
+    <div style="display:none;">
+        <canvas id="ascii-canvas"></canvas>
+        <canvas id="webgl-canvas"></canvas>
+        <canvas id="paint-layer"></canvas>
+        <canvas id="ruler-layer"></canvas>
+        <div id="preview-media-container"></div>
+    </div>
+<body class="bg-akai-base">
+<div id="canvas-container" style="display:none;">
+    <canvas id="grid-canvas"></canvas>
+    <canvas id="paint-layer"></canvas>
+    <canvas id="ascii-canvas"></canvas>
+    <div id="preview-media-container"></div>
+</div>
+<header class="flex items-center justify-between px-4 h-[60px] bg-[#1e1e1e] border-b border-gray-800">
+        <div class="flex items-center">
+            <span class="text-xl font-bold text-white mr-6">Studio AV <span class="text-[10px] text-fuchsia-500">v1.6</span></span>
+            <div id="mode-indicator" class="px-3 py-1 rounded text-[10px] font-black bg-fuchsia-900 text-fuchsia-400 border border-fuchsia-700 transition-all duration-500">
+                MODE: AGI / RUP ACTIVE
+            </div>
+            <div class="ml-6 px-4 py-1.5 bg-black/40 border border-gray-800 rounded-full flex gap-3 items-center">
+                <span class="text-[9px] text-gray-500 font-bold uppercase">Potentiel RUP:</span>
+                <span id="rup-fund" class="text-xs font-mono text-green-500 font-bold">4790.69 UTMi</span>
+            </div>
+        </div>
+        
+        <div class="flex gap-2">
+            <button id="sync-core-btn" class="bg-blue-600 hover:bg-blue-700 px-3 py-1.5 rounded text-white text-[10px] font-bold">
+                🔄 SYNC STATE
+            </button>
+            <button id="save-jwt-btn" class="bg-green-600 hover:bg-green-700 px-3 py-1.5 rounded text-white text-[10px] font-bold">
+                💾 SAVE TOKEN
+            </button>
+        </div>
+    </header>
+
+    <div id="workspace">
+        
+        <aside id="agi-conversations" class="collapsed-aside left-aside is-open">
+            <div class="aside-trigger">
+                <span class="trigger-icon">💬</span>
+                <span class="vertical-text">CHAT LOG</span>
+            </div>
+            
+            <div class="aside-content flex flex-col h-full">
+                
+                <div class="p-3 border-b border-gray-700 bg-[#1a1a1a]">
+                    <div class="flex justify-between items-center">
+                        <h2 class="text-white font-semibold text-xs uppercase tracking-wider">Historique</h2>
+                        <button id="new-convo-btn" class="bg-fuchsia-700 text-white text-[10px] px-2 py-1 rounded hover:bg-fuchsia-600 transition-colors">
+                            + Nouvelle Conversation
+                        </button>
+                    </div>
+                </div>
+                <div id="conversation-history" class="p-2 text-gray-400 text-xs overflow-y-auto">
+                    <div class="chat-room-item text-white border-blue-500 border-l-2 bg-[#252525] px-2">
+                        <span>Analyse Projet A (Actif)</span>
+                    </div>
+                    <div class="chat-room-item">
+                        <span>Test Composant (Hier)</span>
+                    </div>
+                    <div class="chat-room-item">
+                        <span>Stratégie RUP (2 jours)</span>
+                    </div>
+                    <p class="p-2 text-gray-600">-- Fin Historique --</p>
+                </div>
+                
+                <div class="p-3 border-b border-gray-700 bg-[#1a1a1a] mt-auto">
+                    <h2 class="text-white font-semibold text-xs uppercase tracking-wider">ChatRooms (Topics)</h2>
+                </div>
+                <div id="chat-rooms" class="p-2 text-gray-400 text-xs overflow-y-auto">
+                    <p class="p-2 text-gray-600">- Prompt Thématiques --</p>
+                    <div class="chat-room-item">💻 ASSISTANT commande</div>
+                    <div class="chat-room-item">💻 ASSISTANT code</div>
+                    <p class="p-2 text-gray-600">-- Secteurs Thématiques --</p>
+                    <div class="chat-room-item">📱 Tech & DevOps</div>
+                    <div class="chat-room-item">📈 Marketing & CRO</div>
+                    <div class="chat-room-item">🔥 Viralité & Social</div>
+                    <div class="chat-room-item">🎨 Création Artistique</div>
+                    <p class="p-2 text-gray-600">-- Secteurs Thématiques --</p>
+                </div>
+
+            </div>
+        </aside>
+
+        <div id="center-area" class="flex-1 flex flex-col relative z-0 p-4 bg-[#0d0d0d]">
+            
+            <h2 class="text-xl font-bold text-white mb-4 border-b border-gray-800 pb-2">🧠 AGI Logic Console (/terminal)</h2>
+            
+            <div id="ai-terminal-profile" class="flex-1 terminal-container flex flex-col overflow-hidden">
+                <div id="terminal-output-profile" class="flex-1 overflow-y-auto">
+                    <span class="ai-log">AGI > Initialisation du Rôle: Expert.</span><br>
+                    <span class="ai-log">AGI > Prêt à recevoir les commandes META_AGI (ex: /help, /ia_role).</span><br>
+                </div>
+                
+                <div class="h-8 bg-black flex items-center px-2 shrink-0">
+                    <span class="ai-log font-mono text-xs">></span>
+                    <input type="text" id="terminal-input-profile" class="flex-1 ml-2 font-mono" placeholder="Entrez la commande AGI ici...">
+                    <button id="send-command-profile" class="bg-fuchsia-700 text-white text-xs px-2 py-1 rounded hover:bg-fuchsia-600 ml-2">Envoyer</button>
+                </div>
+            </div>
+
+        </div>
+
+        <aside id="agi-profile" class="collapsed-aside right-aside is-open">
+            <div class="aside-trigger">
+                <span class="trigger-icon">👤</span>
+                <span class="vertical-text">PROFILE</span>
+            </div>
+            
+            <div class="aside-content">
+                
+                <div class="panel-header p-3 border-b border-gray-700 bg-[#1a1a1a]">
+                    <span class="text-white font-bold text-xs uppercase">Matrice de Logique Active (Rôle: <span id="active-role-display" class="text-fuchsia-400">Expert</span>)</span>
+                </div>
+                <div class="p-3 border-b border-gray-700 profile-card text-center">
+                    <img src="../assets/ia_avatar_placeholder.png" alt="AI Avatar" class="h-20 w-20 rounded-full mx-auto mb-2 border-2 border-fuchsia-400">
+                    <h2 class="text-white font-bold text-lg">ARCHITECTE AGI</h2>
+                    <p class="text-fuchsia-400 text-xs mt-1">Status: Operational (Llama 3.1)</p>
+                </div>
+
+                <div class="flex-1 overflow-y-auto p-4 space-y-4">
+                    
+                    <div class="profile-card p-3 rounded-lg border border-gray-700">
+                        <h3 class="text-sm font-bold text-yellow-400 mb-2">📄 CVNU & Compétences</h3>
+                        <p id="cvnu-status" class="text-xs text-gray-400">
+                            **Expertise:** DevOps, Full-Stack, Content Strategy.
+                            <br>
+                            **Valeur RUP:** 95% (Élevé)
+                        </p>
+                        <button data-command="/cvnu" class="mt-2 w-full bg-gray-700 hover:bg-gray-600 text-white text-xs py-1 rounded">
+                            Exécuter /cvnu
+                        </button>
+                    </div>
+
+                    <div class="profile-card p-3 rounded-lg border border-gray-700">
+                        <h3 class="text-sm font-bold text-green-400 mb-2">💰 Portefeuille (RUP)</h3>
+                        <p id="wallet-status" class="text-xs text-gray-400">
+                            **Actifs Générés:** 61/61
+                            <br>
+                            **Revenu Passif (simulé):** +1.5% daily
+                        </p>
+                        <button data-command="/wallet" class="mt-2 w-full bg-gray-700 hover:bg-gray-600 text-white text-xs py-1 rounded">
+                            Exécuter /wallet
+                        </button>
+                    </div>
+
+                    <div id="logic-matrix" class="space-y-4">
+                        <div id="role-visualization" style="height: 150px;" class="bg-[#222] rounded flex justify-center items-center">
+                            <p class="text-xs text-gray-500 text-center p-2">
+                                <br>
+                                Visualisation du Style Actif (Analytic, Pragmatic, etc.)
+                            </p>
+                        </div>
+                        <div id="response-format-display" class="border border-gray-700 p-3 rounded">
+                            <h3 class="text-xs text-white font-bold mb-1">Format de Réponse Actif</h3>
+                            <p class="text-xs text-green-400 font-mono" id="current-format-output">TEXTE (Rapport Structuré)</p>
+                        </div>
+                        
+                        <button data-command="/help" class="w-full bg-purple-900/50 text-purple-200 py-2 rounded border border-purple-800 text-xs hover:bg-purple-900">
+                            Afficher Catalogue (/help)
+                        </button>
+                    </div>
+
+                </div>
+            </div>
+        </aside>
+    </div>
+
+    <footer id="studio-footer" class="shrink-0">
+        <a href="workspace.html" class="nav-tab"><span class="nav-icon">🚀</span> Workspace</a>
+        <a href="chatroom.html" class="nav-tab"><span class="nav-icon">📁</span> Chatroom</a>
+        <a href="home.html" class="nav-tab"><span class="nav-icon">📊</span> Dashboard</a>
+        <a href="cvnu.html" class="nav-tab active"><span class="nav-icon">📜</span> Forge CV</a>
+        <a href="rup.html" class="nav-tab"><span class="nav-icon">💰</span> Trésorerie</a>
+    </footer>
+    <div id="generic-modal-overlay" class="c-modal-overlay"></div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/tone/14.8.49/Tone.js"></script>
+<script src="http://localhost:3145/socket.io/socket.io.js"></script>
+<script type="module" src="../core/CORE_SYSTEM_CVNU.js"></script> 
+</body>
+</html>

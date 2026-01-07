@@ -1,0 +1,634 @@
+/* =========================================
+   STUDIO MASTER STYLES (V1.6 - IMMERSIVE MODE)
+   Layout: Full Overlay / Auto-Collapse Drawers
+   ========================================= */
+:root {
+    --edge-width: 2px; /* Trait très fin */
+    --color-left: #3b82f6;   /* Bleu (Media) */
+    --color-right: #8b5cf6;  /* Violet (AI) */
+    --color-bottom: #f97316; /* Orange (Timeline) */
+    --quantum-cyan: #00f2ff;
+    --quantum-purple: #8b5cf6;
+    --phase-vibration: 0deg; /* Sera piloté par JS */
+}
+
+/* --- 1. LEFT ASIDE (Bordure à DROITE) --- */
+/* Quand il est focus, on force l'ouverture et on affiche la ligne bleue à droite */
+.left-aside.panel-focused {
+    transform: translateX(0) !important; /* Reste ouvert */
+    border-right: var(--edge-width) solid var(--color-left) !important;
+    box-shadow: 10px 0 20px -5px rgba(59, 130, 246, 0.15); /* Légère lueur vers le centre */
+    z-index: 110; /* Priorité sur le reste */
+}
+
+/* --- 2. RIGHT ASIDE (Bordure à GAUCHE) --- */
+/* Quand il est focus, on force l'ouverture et on affiche la ligne violette à gauche */
+.right-aside.panel-focused {
+    border-left: var(--edge-width) solid var(--color-right) !important;
+    box-shadow: -10px 0 20px -5px rgba(139, 92, 246, 0.15);
+    z-index: 110;
+}
+
+/* --- 3. TIMELINE (Bordure en HAUT) --- */
+/* Quand elle est focus, on force l'ouverture et on affiche la ligne orange en haut */
+#timeline-editor.panel-focused {
+    transform: translateY(0) !important;
+    border-top: var(--edge-width) solid var(--color-bottom) !important;
+    box-shadow: 0 -10px 20px -5px rgba(249, 115, 22, 0.15);
+    z-index: 110;
+}
+
+/* --- 4. CENTER AREA (Réaction passive) --- */
+/* Quand un panneau est focus, le centre peut s'assombrir légèrement (optionnel) 
+   pour renforcer le focus sur le panneau latéral */
+body.has-active-panel #center-area {
+    opacity: 0.8; 
+    transition: opacity 0.3s;
+    pointer-events: none; /* On empêche de cliquer au centre tant qu'un panneau est focus */
+}
+/* Feedback quand on survole une zone de drop */
+.drag-over-hover {
+    background-color: rgba(255, 255, 255, 0.05) !important;
+    outline: 2px dashed #666;
+    outline-offset: -10px;
+}
+
+/* Feedback global quand on commence à dragguer */
+body.dragging-active .left-aside,
+body.dragging-active .timeline-track {
+    /* Indice visuel que des choses peuvent bouger */
+    cursor: grabbing;
+}
+/* --- 1. GLOBAL RESET & LAYOUT --- */
+body { 
+    margin: 0; 
+    overflow: hidden; 
+    font-family: 'Inter', sans-serif; 
+    background-color: #121212; 
+    color: #ddd;
+    display: flex;
+    flex-direction: column;
+    height: 100vh;
+}
+
+/* --- 2. HEADER & FOOTER (FIXED) --- */
+header {
+    height: 50px;
+    background-color: #1e1e1e;
+    border-bottom: 1px solid #333;
+    padding: 0 1rem;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    flex-shrink: 0;
+    z-index: 200; /* Au-dessus de tout */
+    position: relative;
+}
+#ruler-layer { 
+    z-index: 35; /* Au-dessus de paint (20) et ascii (15), en dessous de drawing-layer (30) si nécessaire, sinon au-dessus. */
+    opacity: 1; /* Doit être visible si actif */
+}
+#studio-footer {
+    height: 40px; 
+    background-color: #151515; 
+    border-top: 1px solid #333;
+    display: flex; 
+    justify-content: center; 
+    gap: 4px; 
+    flex-shrink: 0; 
+    z-index: 200; /* Au-dessus de la timeline rétractée */
+    position: relative;
+}
+
+.nav-tab {
+    background: none; border: none; color: #666; font-size: 0.8rem; font-weight: bold;
+    padding: 0 15px; cursor: pointer; display: flex; align-items: center; gap: 6px;
+    border-bottom: 3px solid transparent; transition: all 0.2s;
+}
+.nav-tab:hover { color: #aaa; background: #1e1e1e; }
+.nav-tab.active { color: #ddd; border-bottom-color: #d6455d; background: #252525; }
+
+/* --- 3. WORKSPACE (Zone Centrale Pleine Page) --- */
+#workspace {
+    flex: 1;
+    width: 100vw;
+    height: calc(100vh - 90px); /* Header(50)+Footer(40) */
+    position: relative; /* Référentiel pour les absolute */
+    overflow: hidden;
+    background-color: #0d0d0d;
+    display: flex;
+}
+
+/* CENTER AREA : Prend toute la place maintenant */
+#center-area {
+    width: 100%;
+    height: 100%;
+    overflow: hidden;
+    position: absolute; /* Fond complet */
+    top: 0; left: 0;
+    z-index: 1; /* Le plus bas */
+    display: flex;
+    flex-direction: column;
+    padding-bottom: 40px; /* Espace pour le header de timeline visible */
+    padding-left: 40px;
+    padding-right: 40px;
+    transition: box-shadow 0.2s ease;
+}
+/* --- QUANTUM CONSOLE STYLES --- */
+
+#quantum-console-wrapper {
+    /* S'assure qu'il reste en bas si le parent est flex */
+    min-height: 150px; 
+    transition: height 0.3s ease;
+}
+.tableur-app {
+    z-index: 5;
+    position: relative;
+    width: 100%;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    height: 100%;
+}
+/* Scrollbar personnalisée fine */
+.scrollbar-thin::-webkit-scrollbar {
+    width: 6px;
+}
+.scrollbar-thin::-webkit-scrollbar-track {
+    background: #000;
+}
+.scrollbar-thin::-webkit-scrollbar-thumb {
+    background: #333;
+    border-radius: 3px;
+}
+.scrollbar-thin::-webkit-scrollbar-thumb:hover {
+    background: #4ade80; /* Vert Matrix */
+}
+
+/* Lignes de log */
+.log-line {
+    word-break: break-all;
+    font-family: 'Consolas', 'Monaco', monospace;
+}
+.log-error { color: #ef4444; } /* Rouge */
+.log-success { color: #4ade80; } /* Vert */
+.log-system { color: #60a5fa; } /* Bleu */
+.log-warn { color: #facc15; }   /* Jaune */
+
+/* Animation curseur input (optionnel) */
+#console-input:focus {
+    box-shadow: none;
+}
+.log-line {
+    font-family: 'Consolas', 'Monaco', 'Courier New', monospace; /* Police chasse fixe OBLIGATOIRE */
+    white-space: pre-wrap; /* Conserve les espaces et sauts de ligne */
+    word-break: break-all;
+    font-size: 11px; /* Un peu plus petit pour faire rentrer les tableaux */
+    line-height: 1.1;
+    margin-bottom: 4px;
+}
+/* --- 4. PREVIEW ZONE --- */
+#preview-zone {
+    flex: 1;
+    background-color: #000;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    overflow: hidden;
+    position: relative;
+}
+
+#preview-media-container {
+    position: relative;
+    width: 100%;
+    height: 100%;
+    overflow: hidden;
+    /* On s'assure qu'aucun flex ne vienne décaler les enfants */
+    display: block !important; 
+}
+/* L'image de preview doit être capable de passer devant le canvas de peinture */
+#player-image.preview-player {
+    z-index: 55 !important; /* Force brute pour passer devant paint-layer (z-index: 20/30) */
+    background: black; /* Évite la transparence si PNG */
+}
+
+/* La vidéo aussi */
+#player-video.preview-player {
+    z-index: 55 !important;
+}
+/* Appliqué à tous les calques (paint, ascii, webgl) */
+.preview-player {
+    position: absolute !important;
+    top: 0 !important;
+    left: 0 !important;
+    width: 100% !important;
+    height: 100% !important;
+    /* CRITIQUE : Supprime le letterboxing pour correspondre au SVG */
+    object-fit: fill !important; 
+    margin: 0 !important;
+    padding: 0 !important;
+}
+
+#drawing-layer {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    z-index: 30;
+    pointer-events: none;
+    /* Le SVG doit être étiré exactement comme le canvas */
+    display: block;
+}
+
+/* Couches de rendu (Z-Index local) */
+.preview-player.active { opacity: 1; }
+
+#player-video { z-index: 5; opacity: 1; }
+#webgl-canvas { z-index: 10; mix-blend-mode: screen; opacity: 0; }
+#ascii-canvas { min-width: 100%;min-height: 100%;z-index: 15; opacity: 0; }
+#paint-layer {
+    position: absolute;
+    top: 0;
+    z-index: 20;
+    left: 0;
+    width: 100% !important;
+    height: 100% !important;
+    pointer-events: none;
+}
+/* Mode Quantum (Activé par JS) */
+#preview-media-container.mode-quantum #player-video { opacity: 0 !important; }
+#preview-media-container.mode-quantum #webgl-canvas { opacity: 1 !important; mix-blend-mode: normal !important; }
+
+/* --- 5. PANNEAUX LATÉRAUX (ASIDE DRAWERS) --- */
+
+
+/* Structure commune */
+.collapsed-aside {
+    position: absolute;
+    top: 0; bottom: 0;
+    width: 300px; /* Largeur totale déployée */
+    z-index: 100; /* Au-dessus du Center Area */
+    display: flex;
+    transition: transform 0.3s cubic-bezier(0.25, 0.46, 0.45, 0.94);
+    /* Note: Pas de pointer-events: none ici sinon on ne peut pas hover le trigger */
+}
+
+.aside-content {
+    flex: 1;
+    background-color: rgba(26, 26, 26, 0.95); /* Légère transparence */
+    backdrop-filter: blur(5px);
+    border: 1px solid #333;
+    display: flex; flex-direction: column; overflow: hidden;
+    box-shadow: 0 0 30px rgba(0,0,0,0.8);
+}
+
+.aside-trigger {
+    width: 30px;
+    height: 100%;
+    background-color: #111;
+    border: 1px solid #333;
+    display: flex; flex-direction: column; align-items: center; padding-top: 15px;
+    cursor: pointer; color: #666; z-index: 101;
+    transition: background 0.2s, color 0.2s;
+}
+.aside-trigger:hover { background-color: #252525; color: #fff; }
+.trigger-icon { font-size: 1.2rem; margin-bottom: 10px; }
+.vertical-text { writing-mode: vertical-rl; transform: rotate(180deg); font-size: 0.7rem; font-weight: bold; letter-spacing: 2px; }
+
+/* -- LEFT ASIDE (GAUCHE) -- */
+.left-aside {
+    left: 0;
+    flex-direction: row-reverse; /* Trigger à droite du contenu */
+    /* On cache le contenu (270px) en laissant le trigger (30px) visible */
+    transform: translateX(-270px);
+}
+.left-aside:hover { transform: translateX(0); }
+.left-aside .aside-trigger { border-left: none; }
+
+/* -- RIGHT ASIDE (DROITE) -- */
+.right-aside {
+    right: 0;
+    flex-direction: row; /* Trigger à gauche du contenu */
+    /* On cache le contenu (270px) en laissant le trigger (30px) visible */
+    transform: translateX(270px);
+}
+.right-aside:hover { transform: translateX(0); }
+.right-aside .aside-trigger { border-right: none; }
+
+
+/* --- 6. TIMELINE (BOTTOM DRAWER) --- */
+#timeline-editor {
+    position: absolute;
+    bottom: 0; left: 0; right: 0;
+    height: 300px; /* Hauteur déployée */
+    background-color: rgba(30, 30, 30, 0.98);
+    border-top: 2px solid #333;
+    display: flex; flex-direction: column;
+    z-index: 90; /* Au-dessus du Center Area, en dessous des Asides */
+    transition: transform 0.3s cubic-bezier(0.25, 0.46, 0.45, 0.94);
+    
+    /* Par défaut : Caché, sauf une bande de 30px (le header) */
+    transform: translateY(calc(100% - 30px)); 
+}
+
+/* Au survol, on déploie */
+#timeline-editor:hover {
+    transform: translateY(0);
+    box-shadow: 0 -10px 50px rgba(0,0,0,0.8);
+}
+
+.timeline-header {
+    height: 30px;
+    background-color: #252525;
+    border-bottom: 1px solid #333;
+    display: flex; align-items: center; justify-content: space-between; padding: 0 10px;
+    cursor: n-resize; /* Indique que c'est une zone active */
+}
+.timeline-header:hover { background-color: #333; }
+
+#timeline-content-wrapper { flex: 1; position: relative; overflow: auto; }
+
+/* Elements Timeline */
+#timecode-area { height: 25px; background: #2a2a2a; border-bottom: 1px solid #444; position: sticky; top: 0; z-index: 40; }
+#playhead { position: absolute; top: 0; bottom: 0; width: 1px; background: red; z-index: 60; pointer-events: none; border-left: 1px solid rgba(255,0,0,0.5); }
+.timeline-track { height: 45px; background: #252525; border: 1px solid #333; position: relative; margin-bottom: 4px; border-radius: 3px; }
+.track-label { position: absolute; left: 5px; top: 2px; font-size: 0.6rem; color: #666; pointer-events: none; font-weight: bold; }
+
+/* --- CONTROLS OVERLAY (PLAY/PAUSE) --- */
+/* Pour éviter que les contrôles soient cachés par la timeline, on les remonte un peu */
+.preview-controls {
+    position: absolute;
+    bottom: 40px; /* Au-dessus du header timeline rétracté */
+    left: 50%; transform: translateX(-50%);
+    background: rgba(0,0,0,0.5);
+    backdrop-filter: blur(4px);
+    border-radius: 20px;
+    padding: 5px 20px;
+    border: 1px solid rgba(255,255,255,0.1);
+    z-index: 80;
+    transition: opacity 0.2s;
+}
+/* On cache les contrôles quand la timeline est ouverte pour ne pas gêner */
+#timeline-editor:hover ~ #center-area .preview-controls {
+    opacity: 0;
+    pointer-events: none;
+}
+/* --- TIMELINE DRAWER & FOCUS --- */
+
+#timeline-editor {
+    position: absolute;
+    bottom: 0; left: 0; right: 0;
+    height: 300px; /* Hauteur déployée */
+    background-color: rgba(30, 30, 30, 0.98);
+    
+    /* Bordure par défaut (discrète) */
+    border-top: 2px solid #333;
+    
+    display: flex; flex-direction: column;
+    z-index: 90; 
+    transition: transform 0.3s cubic-bezier(0.25, 0.46, 0.45, 0.94), border-color 0.2s, box-shadow 0.2s;
+    
+    /* Caché par défaut (sauf header 30px) */
+    transform: translateY(calc(100% - 30px)); 
+}
+
+/* Au survol : On ouvre le tiroir */
+#timeline-editor:hover {
+    transform: translateY(0);
+    box-shadow: 0 -10px 50px rgba(0,0,0,0.8);
+}
+
+/* ÉTAT ACTIF (FOCUS) - Géré par JS */
+/* Utilisation de !important pour être sûr que ça s'applique */
+#timeline-editor.timeline-focused {
+    border-top: 2px solid #1e3a8a !important; /* BLEU SYSTEME */
+    box-shadow: 0 -5px 25px rgba(59, 130, 246, 0.3) !important; /* GLOW BLEU */
+}
+
+/* Contenu */
+.timeline-header {
+    height: 30px;
+    background-color: #252525;
+    border-bottom: 1px solid #333;
+    display: flex; align-items: center; justify-content: space-between; padding: 0 10px;
+    cursor: pointer;
+}
+
+#timeline-content-wrapper { 
+    flex: 1; 
+    position: relative; 
+    overflow: auto; 
+    outline: none; /* Enlève le contour bleu par défaut du navigateur */
+}
+
+/*
+    AJOUTEZ CE BLOC À VOTRE FICHIER CSS PRINCIPAL
+*/
+
+/* 1. Définir l'animation de base (sur le corps ou le conteneur principal) */
+#preview-media-container {
+    /* Propriété critique: assure une animation de 0.3s sur l'opacité */
+    transition: opacity 0.3s ease-in-out;
+    opacity: 1; /* S'assurer qu'il est visible au départ */
+}
+
+/* 2. La classe déclenchée par le JavaScript */
+.studio-fade-out {
+    /* Rend l'élément invisible */
+    opacity: 0 !important; 
+    /* pointer-events: none; (Optionnel: pour bloquer les clics pendant la transition) */
+}
+/* Optimisation Performance GPU */
+#preview-media-container {
+    contain: strict; /* Isole le rendu du reste de la page */
+    will-change: transform, opacity;
+    background: radial-gradient(circle, #0d0d0d 0%, #000 100%);
+}
+
+#drawing-layer, .grid-overlay-layer {
+    pointer-events: none;
+    backface-visibility: hidden; /* Réduit la charge de calcul 3D */
+}
+
+/* Identité Visuelle Quantum */
+.quantum-timeline-container {
+    border-top: 1px solid var(--color-bottom);
+    background: rgba(10, 10, 10, 0.95) !important;
+    backdrop-filter: blur(10px); /* Flou hardware-accelerated */
+}
+
+/* Effet de lueur sur le Playhead */
+.quantum-playhead {
+    box-shadow: 0 0 10px var(--color-bottom);
+    will-change: transform;
+
+}
+/* --- NETTOYAGE DES EFFETS DE DÉCALAGE (TIMELINE vs ASIDE) --- */
+
+/* On supprime la lueur et la bordure forcée qui change la taille du bloc */
+#timeline-editor.timeline-focused {
+    border-top: 1px solid #333 !important; /* Retour à une bordure fixe */
+    box-shadow: none !important; /* Suppression de la lueur qui bave sur l'Aside droit */
+    transform: translateY(0) !important; 
+}
+
+/* On stabilise le conteneur interne pour qu'il ne bouge pas d'un pixel */
+#timeline-editor.timeline-focused #timeline-content-wrapper {
+    box-shadow: none !important; /* Suppression de l'inset qui réduit la zone de dessin */
+    background-color: #050505;
+    outline: none;
+}
+
+/* Suppression des animations de vibration sur le playhead pour le moment */
+.quantum-playhead {
+    box-shadow: none;
+    will-change: auto;
+}
+
+/* --- STABILISATION DES ASIDES --- */
+.right-aside.panel-focused {
+    transform: none !important; 
+    box-shadow: none !important; /* Évite de pousser la timeline */
+    border-left: 1px solid #333 !important;
+}
+
+/* =========================================
+   RESPONSIVE MOBILE PATCH (V1.7)
+   Optimisé pour Android & Web NFC
+   ========================================= */
+
+@media (max-width: 768px) {
+    /* 1. Réinitialisation du Workspace */
+/* Correctif spécifique pour combler les vides de la capture */
+html, body {
+    width: 100%;
+    height: 100%;
+    margin: 0;
+    padding: 0;
+}
+
+#workspace {
+    width: 100vw !important;
+    height: calc(100dvh - 90px) !important; /* d standing for dynamic viewport */
+    display: flex;
+    flex-direction: column; /* On empile les éléments sur mobile */
+}
+
+#center-area {
+    position: relative !important; /* On sort de l'absolute qui fige la taille */
+    width: 100% !important;
+    height: 100% !important;
+    padding: 0 !important; /* On supprime les marges de 40px qui créent les décalages */
+    left: 0 !important;
+    right: 0 !important;
+}
+
+/* On force la preview à prendre toute la largeur disponible */
+#preview-zone {
+    width: 100% !important;
+    height: 60vh !important; /* Priorité au visuel en haut */
+}
+
+    #center-area {
+        padding: 10px; /* Réduction des marges sur mobile */
+        padding-bottom: 50px;
+    }
+
+    /* 2. Transformation des Asides en Overlays Plein Écran */
+    .collapsed-aside {
+        width: 100vw !important;
+        height: 100% !important;
+        z-index: 325; /* Passe au-dessus de tout */
+    }
+
+    /* Left Aside (Media/Files) */
+    .left-aside {
+        transform: translateX(-100%) !important;
+    }
+    .left-aside:hover, .left-aside.panel-focused {
+        transform: translateX(0) !important;
+    }
+
+    /* Right Aside (AI/Settings) */
+    .right-aside {
+        transform: translateX(100%) !important;
+    }
+    .right-aside:hover, .right-aside.panel-focused {
+        transform: translateX(0) !important;
+    }
+
+    /* On masque le trigger sur mobile pour gagner de la place, 
+       ou on le rend flottant */
+    .aside-trigger {
+        width: 45px; /* Plus large pour le tactile */
+        background-color: rgba(17, 17, 17, 0.9);
+    }
+
+    /* 3. Timeline Responsive */
+    #timeline-editor {
+        height: 50vh; /* Prend la moitié de l'écran quand ouvert */
+        transform: translateY(calc(100% - 40px));
+        z-index: 250;
+    }
+    
+    .timeline-track {
+        height: 60px; /* Plus haut pour faciliter le drag mobile */
+    }
+
+    /* 4. Tableur / Quantum Console Adaptatif */
+    .tableur-app {
+        transform: scale(0.9); /* Légère réduction pour voir toute la ligne A-E */
+        transform-origin: center;
+        width: 100vw;
+        overflow-x: auto; /* Scroll horizontal si nécessaire pour le RUP */
+    }
+
+    .log-line {
+        font-size: 9px; /* Plus petit pour les logs Android */
+    }
+
+    /* 5. UI de Scan Mobile */
+    .preview-controls {
+        bottom: 60px;
+        width: 90%;
+        display: flex;
+        justify-content: space-around;
+    }
+}
+
+/* 6. Fix spécifique pour l'encoche (Notch) des téléphones */
+@supports (padding: env(safe-area-inset-bottom)) {
+    #studio-footer {
+        padding-bottom: env(safe-area-inset-bottom);
+        height: calc(40px + env(safe-area-inset-bottom));
+    }
+}
+#view-tableur-mini {
+    flex-direction: column;
+    height: 100%;
+    width: 100%;
+}
+/* studio.css */
+#drawing-layer, #cursor-layer, #quantum-layers-container {
+    overflow: visible !important;
+    pointer-events: none;
+}
+
+#preview-media-container {
+    display: block !important; /* Évite les décalages flexbox sur le SVG */
+}
+
+/* Palette de Shading 8-bit */
+.c-bloc { color: #00ffff; }                   /* Eau Surface */
+.w-bloc { color: #ffffff; }                   /* Montagne / Neige */
+.y-bloc { color: #FFD700; text-shadow: 0 0 5px rgba(255, 215, 0, 0.5); } /* Quartz/Quarks */
+.b-bloc { color: #0077FF; } /* Eau */
+.g-bloc { color: #22CC55; } /* Terre */
+
+/* Optimisation du rendu Warp */
+pre span {
+    display: inline-block;
+    line-height: 1;
+    letter-spacing: 0;
+}
