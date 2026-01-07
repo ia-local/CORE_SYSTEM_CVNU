@@ -251,11 +251,13 @@
         const input = document.getElementById('terminal-input-profile');
         const output = document.getElementById('terminal-output-profile');
         const sendBtn = document.getElementById('send-command-profile');
-        const rupDisplay = document.getElementById('rup-fund');
 
+        /**
+         * Rendu des messages dans le terminal
+         */
         const appendLog = (content, className) => {
             const container = document.createElement('div');
-            container.className = "mb-2 animate-fade-in";
+            container.className = "mb-2";
             
             if (className === 'user-log') {
                 container.className += " user-log font-mono text-blue-400";
@@ -263,6 +265,7 @@
             } else {
                 const pre = document.createElement('pre');
                 pre.className = "ai-log whitespace-pre font-mono text-[11px] leading-tight text-gray-400";
+                // CRITIQUE : Utilisation de innerHTML pour rendre les <span> de couleur du Kernel
                 pre.innerHTML = content; 
                 container.appendChild(pre);
             }
@@ -271,78 +274,79 @@
             output.scrollTop = output.scrollHeight;
         };
 
-        const refreshHUD = () => {
-            if (window.CVNU && window.CVNU.KERNEL) {
-                const state = window.CVNU.KERNEL.STATE;
-                if (rupDisplay) {
-                    rupDisplay.textContent = `${state.USER_CVNU.value_points.toFixed(2)} UTMi`;
-                }
-            }
-        };
-
         /**
-         * Dispatcher Universel avec Intégration Warp-ASCII Distante
+         * Dispatcher de commandes (Local Kernel vs Remote AGI)
          */
-        const handleCommand = async (forcedCmd = null) => {
-            const cmd = forcedCmd || input.value.trim();
+        const handleCommand = async () => {
+            const cmd = input.value.trim();
             if (!cmd) return;
             
-            if (!forcedCmd) input.value = '';
+            input.value = '';
             appendLog(`> ${cmd}`, 'user-log');
 
             try {
                 let responseData = "";
-                const kernel = window.CVNU || window.CVNU_SYSTEM;
-                const engine = (kernel && kernel.system) ? kernel.system : window.system;
 
-                if (!engine) throw new Error("Kernel CVNU non détecté");
-
-                // 1. ROUTAGE IA / AGI (Appel Serveur + Encadrement Warp-ASCII)
+                // 1. ROUTAGE IA DISTANTE (Groq/Node Server)
                 if (cmd.startsWith('/agi') || cmd.startsWith('/ai')) {
-                    const isAgi = cmd.startsWith('/agi');
-                    const endpoint = isAgi ? '/api/agi/unified-query' : '/api/ai';
-                    const title = isAgi ? "AGI ARCHITECT RESPONSE" : "LLAMA AI OUTPUT";
-
-                    const response = await fetch(`http://localhost:3145${endpoint}`, {
+                    const mode = cmd.startsWith('/agi') ? 'AGI' : 'AI';
+                    const response = await fetch('http://localhost:3145/api/sys/exec', {
                         method: 'POST',
                         headers: {'Content-Type': 'application/json'},
-                        body: JSON.stringify({ 
-                            prompt: cmd.replace(/^\/(agi|ai)\s*/, ''), 
-                            context: kernel.KERNEL.STATE.USER_CVNU 
-                        })
+                        body: JSON.stringify({ mode: mode, command: cmd })
                     });
                     
-                    const result = await response.json();
-                    const rawText = result.success !== false ? (result.result || result.data) : `[!] Erreur: ${result.data}`;
+                    if (!response.ok) throw new Error(`Server Error: ${response.status}`);
                     
-                    // ON FORCE L'ENCADREMENT ICI POUR LES COMMANDES DISTANTES
-                    responseData = engine.wrapASCII(title, rawText);
+                    const result = await response.json();
+                    responseData = result.success ? result.data : `[!] Erreur IA: ${result.data}`;
                 } 
-                // 2. ROUTAGE COMMANDES SYSTÈME (Local - Déjà encadré par le Kernel)
+                // 2. ROUTAGE KERNEL LOCAL (CORE_SYSTEM_CVNU.js)
                 else {
-                    responseData = engine.onCommandReceive(cmd);
+                    // Accès sécurisé via window.CVNU ou window.system (selon l'export du kernel)
+                    const kernel = window.CVNU || (window.CVNU_SYSTEM ? window.CVNU_SYSTEM : null);
+                    const engine = (kernel && kernel.system) ? kernel.system : window.system;
+
+                    if (engine && typeof engine.onCommandReceive === 'function') {
+                        // Exécution asynchrone du Dispatcher
+                        responseData = await engine.onCommandReceive(cmd);
+                    } else {
+                        throw new Error("Kernel CVNU non détecté ou non initialisé.");
+                    }
                 }
 
                 appendLog(responseData, 'ai-log');
-                refreshHUD();
 
             } catch (error) {
-                // Utilisation de wrapASCII même pour les erreurs système
-                const kernel = window.CVNU || window.CVNU_SYSTEM;
-                const errView = kernel.system ? kernel.system.wrapASCII("SYSTEM ERROR", error.message) : `[!] ${error.message}`;
-                appendLog(errView, 'ai-log');
+                appendLog(`<span class="r-bloc">[!] Erreur système: ${error.message}</span>`, 'ai-log');
+                console.error("CVNU Logic Error:", error);
             }
         };
 
-        input.addEventListener('keypress', (e) => { if (e.key === 'Enter') handleCommand(); });
-        if (sendBtn) sendBtn.addEventListener('click', () => handleCommand());
-
-        document.addEventListener('click', (e) => {
-            const btn = e.target.closest('[data-command]') || e.target.closest('[data-cmd]');
-            if (btn) handleCommand(btn.getAttribute('data-command') || btn.getAttribute('data-cmd'));
+        // --- Event Listeners ---
+        input.addEventListener('keypress', (e) => {
+            if (e.key === 'Enter') handleCommand();
         });
 
-        setTimeout(refreshHUD, 500);
+        if (sendBtn) {
+            sendBtn.addEventListener('click', handleCommand);
+        }
+
+        // --- Initialisation : On vérifie si le kernel est prêt ---
+        const checkKernel = setInterval(() => {
+            if (window.CVNU || window.system) {
+                console.log("✅ Terminal lié au Kernel CVNU.");
+                clearInterval(checkKernel);
+            }
+        }, 100);
+
+        // Gestion des boutons rapides (Sidebar)
+        document.querySelectorAll('button[data-command]').forEach(btn => {
+            btn.addEventListener('click', () => {
+                input.value = btn.getAttribute('data-command');
+                handleCommand();
+            });
+        });
     });
 </script>
 </body>

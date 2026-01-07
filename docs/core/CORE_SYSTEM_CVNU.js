@@ -1091,6 +1091,30 @@ getDailyAdvice(day) {
             }, 100); // Simulation latence réseau/blockchain
         });
     },
+    // --- Dans CORE_SYSTEM_CVNU.js, objet 'system' ---
+
+/**
+ * Exécute une requête directement vers le modèle Llama via le bridge local
+ * @param {string} prompt - L'instruction utilisateur
+ * @param {string} role - Le système de persona (Architecte, Codeur, etc.)
+ */
+async callLlama(prompt, role = "Architecte AGI CVNU") {
+    try {
+        const response = await fetch('http://localhost:3145/api/ai', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ 
+                prompt: prompt,
+                systemRole: role,
+                model: "llama-3.1-8b-instant" 
+            })
+        });
+        const data = await response.json();
+        return data.result;
+    } catch (e) {
+        return "⚠️ Erreur de liaison AGI : Assurez-vous que server.js tourne sur le port 3145.";
+    }
+},
     /**
      * MODULE FISCAL : Calcul de la Taxe Circulaire Négative (TCN)
      * Directement lié à utms_calculator.js et au Smart Contract
@@ -3489,8 +3513,34 @@ async signTokenAsync(header, payload, secret) {
             case KERNEL.COMMANDS.CVNU_ACTIVATE:
                 this.createMessageInstance('SYSTEM', 'Activation CVNU demandée');
                 return this.wrapASCII("CVNU MANAGEMENT", "EXECUTING_MANAGEMENT_PROTOCOL...\nDATA: CVNU_V2 ACTIVATED");
-            
+          
+case '/sys':
+            const subCmd = args.join(' ');
+            const sysResult = this.onCommandReceive(subCmd);
+            // On ne ré-encadre pas si le résultat est déjà un bloc ASCII
+            return (sysResult.includes('╔')) ? sysResult : this.wrapASCII("SYSTÈME LOCAL", sysResult);
+
+        // 2. ROUTAGE AGI (LLAMA-3.1-8B-INSTANT)
         case '/agi':
+            const agiPrompt = args.join(' ');
+            this.createMessageInstance('USER', agiPrompt);
+            
+            // On prépare le contenu sémantique
+            const agiContent = `[SYSTEM_CONTEXT]: ${JSON.stringify(KERNEL.STATE.USER_CVNU)}\n[USER_PROMPT]: ${agiPrompt}`;
+            
+            // On encadre DIRECTEMENT avec wrapASCII
+            const wrappedAgi = this.wrapASCII("AGI ROUTING ENGINE", agiContent);
+            
+            // On ajoute le flag de transport pour le Front-end
+            return `__BRIDGE_AGI__${wrappedAgi}`;
+
+        // 3. ROUTAGE AI (BRUT)
+        case '/ai':
+            const aiPrompt = args.join(' ');
+            this.createMessageInstance('USER', aiPrompt);
+            const wrappedAi = this.wrapASCII("AI STREAM", aiPrompt);
+            return `__BRIDGE_AI__${wrappedAi}`;
+            case '/agi-t':
                 if (args[0] === 'train') {
                     const targetNode = command === '/cvnu' ? 'CORE' : 'AGI';
                     const endpoint = command === '/cvnu' ? '/api/cvnu/train' : '/api/agi/train';
@@ -3748,48 +3798,48 @@ async signTokenAsync(header, payload, secret) {
             // On intercepte aussi la commande singulière pour l'action
             case '/mission':
                 return this.processMission(args);
-case '/cal':
-    // 1. Initialisation et récupération des données
-    if (!KERNEL.STATE.SESSION.cycle_start) { this.syncDefiDate(); }
-    const status = this.getCycleStatus();
-    const grid = KERNEL.STATE.GRID_28;
-    // Dans onCommandReceive case '/cal'
+            case '/cal':
+            // 1. Initialisation et récupération des données
+            if (!KERNEL.STATE.SESSION.cycle_start) { this.syncDefiDate(); }
+            const status = this.getCycleStatus();
+            const grid = KERNEL.STATE.GRID_28;
+            // Dans onCommandReceive case '/cal'
 
-    // 2. Mise à jour de la grille (4x7)
-    for(let i=0; i<28; i++) {
-        let row = grid.slice(i, i + 7).join(' '); // Gardez un seul espace entre les emojis
-        if (i < status.day - 1) grid[i] = '✅';
-        else if (i === status.day - 1) grid[i] = '📍';
-        else grid[i] = '░░';
-    }
-
-    // 3. Construction du contenu interne (sans les bordures wrapASCII)
-    // Note : On ajoute un espace compensateur pour les lignes contenant des Emojis
-    let gridRows = [];
-    for (let i = 0; i < 28; i += 7) {
-        let row = grid.slice(i, i + 7).join(' ');
-        gridRows.push(` S${(i/7) + 1} : ${row}`);
-    }
-
-    const calendarData = [
-        `📅 CALENDRIER STRATÉGIQUE - DÉFI 28j`,
-        `─`.repeat(40),
-        ` DATE SYSTÈME : 07/01/2026 | ${status.timestamp}`,
-        ` PHASE ACTUELLE: ${this.getPhaseName(status.day)}`,
-        `─`.repeat(40),
-        ...gridRows,
-        ` ----------------------------------------`,
-        ` POTENTIEL : ${status.target_today * 3} Ꞓ`,
-        `─`.repeat(40),
-        ` 📍 PROGRESSION : JOUR ${status.day} / 28`,
-        ` 💰 KPI J${status.day}    : Target ${status.target_today}€ / Actuel ${status.current_balance.toFixed(2)}€`,
-        ` 📊 PERFORMANCE : ${((status.current_balance / status.target_today) * 100).toFixed(1)}% de l'objectif`,
-        ` 💡 CONSEIL J${status.day} : ${this.getDailyAdvice(status.day)}`
-    ].join('\n');
-
-    // 4. Appel de wrapASCII
-    // Le secret : wrapASCII va maintenant encapsuler le tout proprement.
-    return this.wrapASCII("INTERFACE CALENDRIER CVNU", calendarData);
+            // 2. Mise à jour de la grille (4x7)
+            for(let i=0; i<28; i++) {
+                let row = grid.slice(i, i + 7).join(' '); // Gardez un seul espace entre les emojis
+                if (i < status.day - 1) grid[i] = '✅';
+                else if (i === status.day - 1) grid[i] = '📍';
+                else grid[i] = '░░';
+            }
+        
+            // 3. Construction du contenu interne (sans les bordures wrapASCII)
+            // Note : On ajoute un espace compensateur pour les lignes contenant des Emojis
+            let gridRows = [];
+            for (let i = 0; i < 28; i += 7) {
+                let row = grid.slice(i, i + 7).join(' ');
+                gridRows.push(` S${(i/7) + 1} : ${row}`);
+            }
+        
+            const calendarData = [
+                `📅 CALENDRIER STRATÉGIQUE - DÉFI 28j`,
+                `─`.repeat(40),
+                ` DATE SYSTÈME : 07/01/2026 | ${status.timestamp}`,
+                ` PHASE ACTUELLE: ${this.getPhaseName(status.day)}`,
+                `─`.repeat(40),
+                ...gridRows,
+                ` ----------------------------------------`,
+                ` POTENTIEL : ${status.target_today * 3} Ꞓ`,
+                `─`.repeat(40),
+                ` 📍 PROGRESSION : JOUR ${status.day} / 28`,
+                ` 💰 KPI J${status.day}    : Target ${status.target_today}€ / Actuel ${status.current_balance.toFixed(2)}€`,
+                ` 📊 PERFORMANCE : ${((status.current_balance / status.target_today) * 100).toFixed(1)}% de l'objectif`,
+                ` 💡 CONSEIL J${status.day} : ${this.getDailyAdvice(status.day)}`
+            ].join('\n');
+        
+            // 4. Appel de wrapASCII
+            // Le secret : wrapASCII va maintenant encapsuler le tout proprement.
+            return this.wrapASCII("INTERFACE CALENDRIER CVNU", calendarData);
             case '/map':
             // 1. On utilise le moteur GÉO déjà présent dans ton fichier
             const geoEngine = new AsciiGeoEngine();

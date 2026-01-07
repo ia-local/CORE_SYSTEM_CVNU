@@ -18,40 +18,78 @@ app.use(cors());
 app.use(bodyParser.json());
 // 1. Routage statique pour GitHub Pages (Dossier /docs)
 app.use(express.static(path.join(__dirname, 'docs')));
-
+app.use(cors({
+    origin: '*', // Permet à n'importe quelle interface (GitHub Pages ou local) d'appeler l'API
+    methods: ['POST', 'GET']
+}));
 // 2. Endpoint Unifié SYS / AI / AGI
 app.post('/api/sys/exec', async (req, res) => {
     const { command, mode } = req.body;
+    
     try {
         let output = "";
 
+        // On vérifie que le Kernel est bien chargé
+        if (!global.cvnu_system) {
+            throw new Error("Kernel non initialisé sur le serveur");
+        }
+
         if (mode === 'SYS') {
-            // Exécution directe dans le Kernel CVNU
-            output = system.onCommandReceive(command);
+            // Utilisation de la méthode asynchrone pour éviter [object Promise]
+            output = await global.cvnu_system.onCommandReceive(command);
         } 
         else if (mode === 'AI' || mode === 'AGI') {
-            // Construction du contexte pour l'AGI
             const systemPrompt = mode === 'AGI' 
-                ? `Tu es l'AGI souveraine CVNU. Etat actuel : ${JSON.stringify(KERNEL.STATE.USER_CVNU)}`
-                : "Tu es un assistant technique concis.";
+                ? `Tu es l'AGI souveraine CVNU. Etat : ${JSON.stringify(global.KERNEL.STATE)}`
+                : "Tu es un assistant technique.";
 
             const completion = await groq.chat.completions.create({
                 messages: [
                     { role: "system", content: systemPrompt },
                     { role: "user", content: command }
                 ],
-                model: "llama3-70b-8192",
+                model: "llama-3.1-8b-instant",
             });
             output = completion.choices[0].message.content;
         }
 
-        res.json({ status: 'success', data: output });
+        res.json({ success: true, data: output });
     } catch (error) {
-        res.status(500).json({ status: 'error', data: error.message });
+        console.error("❌ Erreur API:", error.message);
+        res.status(500).json({ success: false, data: "ERREUR KERNEL: " + error.message });
     }
 });
+// --- instance role:system / role:user / role:assistant ---
+
+// 1. Route AI (Brut : Assistant rapide)
+app.post('/api/ai', async (req, res) => {
+    const { prompt } = req.body;
+    const completion = await groq.chat.completions.create({
+        messages: [{ role: "user", content: prompt }], // User -> Assistant
+        model: "llama-3.1-8b-instant",
+    });
+    res.json({ result: completion.choices[0].message.content });
+});
+
+// 2. Route AGI (Complexe : System context + User prompt)
+app.post('/api/agi/unified-query', async (req, res) => {
+    const { prompt, context } = req.body;
+    const completion = await groq.chat.completions.create({
+        messages: [
+            { role: "system", content: `Tu es le Kernel AGI. Contexte : ${JSON.stringify(context)}` }, // Role: System
+            { role: "user", content: prompt } // Role: User
+        ],
+        model: "llama-3.1-8b-instant",
+        temperature: 0.2
+    });
+    res.json({ result: completion.choices[0].message.content });
+});
+// Pour être sûr que system est accessible dans vos routes :
+global.cvnu_system = system; 
+global.KERNEL = KERNEL;
 
 // Utiliser server.listen au lieu de app.listen
 server.listen(PORT, () => {
+    console.log("✅ [BOOT] Kernel chargé et disponible pour les routes /api");
     console.log(`🚀 Serveur sur http://localhost:${PORT}`);
 });
