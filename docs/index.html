@@ -244,6 +244,43 @@
 
 <script src="https://cdnjs.cloudflare.com/ajax/libs/tone/14.8.49/Tone.js"></script>
 <script src="http://localhost:3145/socket.io/socket.io.js"></script>
-<script type="module" src="../core/CORE_SYSTEM_CVNU.js"></script> 
+<script type="module">
+    import { system, KERNEL } from '../core/CORE_SYSTEM_CVNU.js';
+
+    // Bridge Localhost vs GitHub Pages
+    const API_URL = window.location.hostname === 'localhost' ? 'http://localhost:3145' : 'https://ia-local.github.io/CORE_SYSTEM_CVNU/';
+
+    window.addEventListener('DOMContentLoaded', () => {
+        const input = document.getElementById('terminal-input-profile');
+        const output = document.getElementById('terminal-output-profile');
+
+        // Capture de l'entrée console AGI
+        input.addEventListener('keypress', async (e) => {
+            if (e.key === 'Enter') {
+                const cmd = input.value;
+                input.value = '';
+                
+                // 1. Affichage local immédiat
+                output.innerHTML += `<div class="user-log">> ${cmd}</div>`;
+
+                // 2. Routage vers le Kernel (Mode SYS par défaut)
+                const response = system.onCommandReceive(cmd);
+                
+                // 3. Rendu ASCII dans la console HTML
+                output.innerHTML += `<pre class="ai-log">${response}</pre>`;
+                output.scrollTop = output.scrollHeight;
+
+                // 4. (Optionnel) Sync avec le serveur distant
+                if (window.location.hostname === 'localhost') {
+                    fetch(`${API_URL}/api/sys/exec`, {
+                        method: 'POST',
+                        headers: {'Content-Type': 'application/json'},
+                        body: JSON.stringify({ mode: 'SYS', command: cmd })
+                    }).catch(err => console.log("Serveur local non détecté, mode autonome activé."));
+                }
+            }
+        });
+    });
+</script> 
 </body>
 </html>
