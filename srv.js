@@ -1,17 +1,21 @@
 const express = require('express');
+const http = require('http'); // Obligatoire pour Socket.io
 const bodyParser = require('body-parser');
 const cors = require('cors');
 const path = require('path');
+const socketio = require('socket.io');
 const Groq = require('groq-sdk');
-const { system, KERNEL } = require('./core/CORE_SYSTEM_CVNU.js');
-
 const app = express();
+const { system, KERNEL } = require('./docs/core/CORE_SYSTEM_CVNU.js');
+const server = http.createServer(app); // On crée le serveur HTTP
+const io = socketio(server); // On lie Socket.io au serveur
+
 const PORT = 3145;
 const groq = new Groq({ apiKey: process.env.GROQ_API_KEY });
 
+
 app.use(cors());
 app.use(bodyParser.json());
-
 // 1. Routage statique pour GitHub Pages (Dossier /docs)
 app.use(express.static(path.join(__dirname, 'docs')));
 
@@ -47,7 +51,7 @@ app.post('/api/sys/exec', async (req, res) => {
     }
 });
 
-app.listen(PORT, () => {
-    console.log(`\n🚀 CVNU Core Server actif sur http://localhost:${PORT}`);
-    console.log(`📂 GitHub Pages local view: http://localhost:${PORT}/index.html`);
+// Utiliser server.listen au lieu de app.listen
+server.listen(PORT, () => {
+    console.log(`🚀 Serveur sur http://localhost:${PORT}`);
 });
